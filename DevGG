@@ -1,196 +1,38 @@
--- UI Library
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source"))()
 
-local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-
--- Game ID (Lobby Check)
-local isLobby = game.PlaceId == 94845773826960
-
--- Dungeon Start Code
-local function startDungeon()
-    local trigger = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Dungeons"):WaitForChild("TriggerStartDungeon")
-    trigger:FireServer()
-end
-
--- Map List (Dropdown Map -> Internal Value)
-local MapList = {
-    ["ForestDungeon"] = "ForestDungeon",
-    ["MountainDungeon (Lv15+)"] = "MountainDungeon",
-    ["CoveDungeon (Lv30+)"] = "CoveDungeon",
-    ["CastleDungeon (Lv45+)"] = "CastleDungeon"
-}
-
--- Dungeon Setting
-local selectedMap = "ForestDungeon"
-local selectedDifficulty = 1
-local selectedPlayers = 1
-local exitChoice = "Return" -- or "GoAgain"
-
--- Auto Toggle
-local autoStart = false
-local autoFarm = false
-local autoExit = false
-
--- GUI Creation
 local Window = Rayfield:CreateWindow({
-    Name = "Ice Cream Hub",
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "IceCreamHub"
-    },
-    Discord = {
-        Enabled = false
-    },
-    LoadingTitle = "Ice Cream Hub",
-    LoadingSubtitle = "by ChatGPT"
+	Name = "Ice Cream Hub",
+	LoadingTitle = "Ice Cream Hub Loading...",
+	LoadingSubtitle = "by ponakiku",
+	ConfigurationSaving = {
+		Enabled = true,
+		FolderName = "IceCreamHub",
+		FileName = "IceCreamUIConfig"
+	},
+	Discord = {
+		Enabled = false
+	},
+	KeySystem = false
 })
 
-local DungeonTab = Window:CreateTab("Dungeon Settings", 4483362458)
-local AutoTab = Window:CreateTab("Auto Farm", 4483362458)
+-- Tab 1: Dungeon Settings
+local DungeonSettings = Window:CreateTab("Dungeon Settings", 4483362458)
 
--- Dungeon Settings Section
-DungeonTab:CreateDropdown({
-    Name = "Select Dungeon",
-    Options = {"ForestDungeon", "MountainDungeon (Lv15+)", "CoveDungeon (Lv30+)", "CastleDungeon (Lv45+)"},
-    CurrentOption = "ForestDungeon",
-    Callback = function(Option)
-        selectedMap = MapList[Option]
-    end
+-- Tab 2: Auto Farm
+local AutoFarm = Window:CreateTab("Auto Farm", 4483362458)
+
+-- Tab 3: Auto Tween
+local AutoTween = Window:CreateTab("Auto Tween", 4483362458)
+
+-- Tab 4: Exit Settings
+local ExitSettings = Window:CreateTab("Exit Settings", 4483362458)
+
+-- Tab 5: Credits
+local Credits = Window:CreateTab("Credits", 4483362458)
+
+Rayfield:Notify({
+	Title = "Ice Cream Hub",
+	Content = "UI loaded successfully!",
+	Duration = 4,
+	Image = 4483362458
 })
-
-DungeonTab:CreateDropdown({
-    Name = "Select Difficulty",
-    Options = {"Normal", "Medium", "Hard", "Insane"},
-    CurrentOption = "Normal",
-    Callback = function(Option)
-        local diffMap = {Normal = 1, Medium = 2, Hard = 3, Insane = 4}
-        selectedDifficulty = diffMap[Option]
-    end
-})
-
-DungeonTab:CreateSlider({
-    Name = "Players",
-    Range = {1, 2},
-    Increment = 1,
-    CurrentValue = 1,
-    Callback = function(Value)
-        selectedPlayers = Value
-    end
-})
-
-DungeonTab:CreateButton({
-    Name = "Apply Settings",
-    Callback = function()
-        local args = {
-            [1] = selectedMap,
-            [2] = selectedDifficulty,
-            [3] = selectedPlayers,
-            [4] = false
-        }
-        ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Parties"):WaitForChild("SetSettings"):FireServer(unpack(args))
-    end
-})
-
--- Auto Farm Section
-AutoTab:CreateParagraph({
-    Title = "Note",
-    Content = "Must Unequip Your Pet Before Start"
-})
-
-AutoTab:CreateToggle({
-    Name = "Auto Start Dungeon",
-    CurrentValue = false,
-    Callback = function(Value)
-        autoStart = Value
-    end
-})
-
-AutoTab:CreateToggle({
-    Name = "Auto Farm (Tween + Attack)",
-    CurrentValue = false,
-    Callback = function(Value)
-        autoFarm = Value
-    end
-})
-
-AutoTab:CreateToggle({
-    Name = "Auto Exit Dungeon",
-    CurrentValue = false,
-    Callback = function(Value)
-        autoExit = Value
-    end
-})
-
-AutoTab:CreateDropdown({
-    Name = "Exit Choice (Only one can be active)",
-    Options = {"Return", "GoAgain"},
-    CurrentOption = "Return",
-    Callback = function(Option)
-        exitChoice = Option
-    end
-})
-
--- Auto Start Dungeon
-if not isLobby then
-    task.spawn(function()
-        while true do
-            task.wait(2)
-            if autoStart then
-                startDungeon()
-            end
-        end
-    end)
-end
-
--- Auto Farm Tween + Attack (code mẫu như bạn từng dùng)
-local function getNearestMob()
-    local closest, shortest = nil, math.huge
-    for _, mob in pairs(workspace:WaitForChild("Monsters"):GetChildren()) do
-        if mob:FindFirstChild("HumanoidRootPart") and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-            local dist = (mob.HumanoidRootPart.Position - Character.HumanoidRootPart.Position).Magnitude
-            if dist < shortest then
-                shortest = dist
-                closest = mob
-            end
-        end
-    end
-    return closest
-end
-
-RunService.Heartbeat:Connect(function()
-    if autoFarm and not isLobby then
-        local target = getNearestMob()
-        if target then
-            Character:WaitForChild("Humanoid"):MoveTo(target.HumanoidRootPart.Position)
-            local tool = Character:FindFirstChildOfClass("Tool")
-            if tool then
-                tool:Activate()
-            end
-        end
-    end
-end)
-
--- Auto Exit when no monster exists in 10 seconds
-task.spawn(function()
-    while true do
-        task.wait(10)
-        if autoExit and not isLobby then
-            local hasMonster = false
-            for _, mob in pairs(workspace:WaitForChild("Monsters"):GetChildren()) do
-                if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-                    hasMonster = true break
-                end
-            end
-            if not hasMonster then
-                local args = {
-                    [1] = exitChoice
-                }
-                ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Dungeons"):WaitForChild("SetExitChoice"):FireServer(unpack(args))
-            end
-        end
-    end
-end)
