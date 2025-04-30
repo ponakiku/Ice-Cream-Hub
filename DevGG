@@ -1,13 +1,12 @@
--- Ice Cream Hub UI & Full Auto System for Dungeon Heroes
--- Supports: Dungeon Settings, Auto Start, Auto Farm (Tween + Attack), Replay/Return
+-- UI Library
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-
-
 
 
 -- Game ID (Lobby Check)
@@ -37,9 +36,6 @@ local exitChoice = "Return" -- or "GoAgain"
 local autoStart = false
 local autoFarm = false
 local autoExit = false
-
--- UI Library
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
 
 -- GUI Creation
 local Window = Rayfield:CreateWindow({
