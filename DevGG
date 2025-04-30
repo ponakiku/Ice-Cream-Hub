@@ -7,8 +7,7 @@ local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
 local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
 
--- UI Library
-local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+
 
 
 -- Game ID (Lobby Check)
@@ -38,6 +37,9 @@ local exitChoice = "Return" -- or "GoAgain"
 local autoStart = false
 local autoFarm = false
 local autoExit = false
+
+-- UI Library
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
 
 -- GUI Creation
 local Window = Rayfield:CreateWindow({
