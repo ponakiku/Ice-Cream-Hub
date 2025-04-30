@@ -1,25 +1,150 @@
--- Tải và khởi động Rayfield
-loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source"))()
+ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local TweenDistance = 25
+local TweenSpeed = 25
+local AutoAttack = false
+local AutoFollowEnabled = false
 
--- Bắt đầu tạo giao diện
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+
+-- UI
 local Window = Rayfield:CreateWindow({
-    Name = "Ice Cream Hub",
-    LoadingTitle = "Ice Cream Hub Loading...",
-    LoadingSubtitle = "by ponakiku",
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "IceCreamHub",
-        FileName = "IceCreamUIConfig"
-    },
-    Discord = {
-        Enabled = false
-    },
-    KeySystem = false
+	Name = "Ice Cream Hub",
+	LoadingTitle = "Ice Cream byDev",
+	ConfigurationSaving = {
+		Enabled = false
+	}
 })
 
--- Các Tab
-local DungeonSettings = Window:CreateTab("Dungeon Settings", 4483362458)
-local AutoFarm = Window:CreateTab("Auto Farm", 4483362458)
-local AutoTween = Window:CreateTab("Auto Tween", 4483362458)
-local ExitSettings = Window:CreateTab("Exit Settings", 4483362458)
-local Credits = Window:CreateTab("Credits", 4483362458)
+local MainTab = Window:CreateTab("AutoFarm", 4483362458)
+
+MainTab:CreateToggle({
+	Name = "Auto Tween Mobs",
+	CurrentValue = false,
+	Flag = "AutoTween",
+	Callback = function(Value)
+		AutoFollowEnabled = Value
+	end,
+})
+
+MainTab:CreateToggle({
+	Name = "Auto Attack Mobs",
+	CurrentValue = false,
+	Flag = "AutoAttack",
+	Callback = function(Value)
+		AutoAttack = Value
+	end,
+})
+
+MainTab:CreateSlider({
+	Name = "Mob Distance",
+	Range = {5, 50},
+	Increment = 1,
+	CurrentValue = 25,
+	Flag = "TweenDistance",
+	Callback = function(Value)
+		TweenDistance = Value
+	end,
+})
+
+MainTab:CreateSlider({
+	Name = "Tween Speed",
+	Range = {5, 40},
+	Increment = 1,
+	CurrentValue = 25,
+	Flag = "TweenSpeed",
+	Callback = function(Value)
+		TweenSpeed = Value
+	end,
+})
+
+-- Hàm tìm quái gần nhất
+local function getClosestMob()
+	local mobs = workspace:FindFirstChild("Mobs")
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not mobs or not root then return nil end
+
+	local closest, dist = nil, math.huge
+	for _, mob in pairs(mobs:GetChildren()) do
+		if not mob.Name:lower():find("pet") and mob:FindFirstChild("HumanoidRootPart") then
+			local d = (mob.HumanoidRootPart.Position - root.Position).Magnitude
+			if d < dist then
+				closest = mob
+				dist = d
+			end
+		end
+	end
+	return closest
+end
+
+-- Auto tween loop
+local currentTween = nil
+local currentTarget = nil
+
+RunService.Heartbeat:Connect(function()
+	if AutoFollowEnabled and player.Character then
+		local humanoid = player.Character:FindFirstChild("Humanoid")
+		local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+
+		if humanoid and hrp and humanoid.Health > 0 then
+			-- Nếu không có target hoặc đã chết -> tìm lại
+			if not currentTarget or not currentTarget:FindFirstChild("Humanoid") or currentTarget.Humanoid.Health <= 0 then
+				currentTarget = getClosestMob()
+			end
+
+			if currentTarget and currentTarget:FindFirstChild("HumanoidRootPart") then
+				local targetHRP = currentTarget.HumanoidRootPart
+				local destination = targetHRP.Position + Vector3.new(0, TweenDistance, 0)
+
+				-- Giữ lơ lửng bằng BodyPosition
+				local bp = hrp:FindFirstChild("FloatPosition") or Instance.new("BodyPosition")
+				bp.Name = "FloatPosition"
+				bp.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+				bp.Position = destination
+				bp.P = 10000
+				bp.D = 1000
+				bp.Parent = hrp
+
+				-- Tween mượt
+				local tweenInfo = TweenInfo.new(1 / TweenSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+				local tweenGoal = { Position = destination }
+
+				if currentTween then
+					currentTween:Cancel()
+				end
+
+				currentTween = TweenService:Create(bp, tweenInfo, tweenGoal)
+				currentTween:Play()
+			end
+		end
+	end
+end)
+
+
+-- Auto tấn công
+task.spawn(function()
+	while true do
+		if AutoAttack then
+			local mob = getClosestMob()
+			if mob then
+				local args = {
+					[1] = {
+						[1] = mob
+					}
+				}
+				local combatRemote = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Combat"):WaitForChild("PlayerAttack")
+				combatRemote:FireServer(unpack(args))
+			end
+		end
+		task.wait(0.3)
+	end
+end)
+
+-- Khi chết, reset target
+player.CharacterAdded:Connect(function()
+	currentTarget = nil
+end)
