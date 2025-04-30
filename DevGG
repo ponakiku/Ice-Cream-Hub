@@ -1,44 +1,25 @@
-local success, Rayfield = pcall(function()
-    return loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source"))()
-end)
+-- Tải và khởi động Rayfield
+loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Rayfield/main/source"))()
 
-if not success then
-    warn("Failed to load Rayfield: " .. tostring(Rayfield))
-else
-    local Window = Rayfield:CreateWindow({
-        Name = "Ice Cream Hub",
-        LoadingTitle = "Ice Cream Hub Loading...",
-        LoadingSubtitle = "by ponakiku",
-        ConfigurationSaving = {
-            Enabled = true,
-            FolderName = "IceCreamHub",
-            FileName = "IceCreamUIConfig"
-        },
-        Discord = {
-            Enabled = false
-        },
-        KeySystem = false
-    })
+-- Bắt đầu tạo giao diện
+local Window = Rayfield:CreateWindow({
+    Name = "Ice Cream Hub",
+    LoadingTitle = "Ice Cream Hub Loading...",
+    LoadingSubtitle = "by ponakiku",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = "IceCreamHub",
+        FileName = "IceCreamUIConfig"
+    },
+    Discord = {
+        Enabled = false
+    },
+    KeySystem = false
+})
 
-    -- Tab 1: Dungeon Settings
-    local DungeonSettings = Window:CreateTab("Dungeon Settings", 4483362458)
-
-    -- Tab 2: Auto Farm
-    local AutoFarm = Window:CreateTab("Auto Farm", 4483362458)
-
-    -- Tab 3: Auto Tween
-    local AutoTween = Window:CreateTab("Auto Tween", 4483362458)
-
-    -- Tab 4: Exit Settings
-    local ExitSettings = Window:CreateTab("Exit Settings", 4483362458)
-
-    -- Tab 5: Credits
-    local Credits = Window:CreateTab("Credits", 4483362458)
-
-    Rayfield:Notify({
-        Title = "Ice Cream Hub",
-        Content = "UI loaded successfully!",
-        Duration = 4,
-        Image = 4483362458
-    })
-end
+-- Các Tab
+local DungeonSettings = Window:CreateTab("Dungeon Settings", 4483362458)
+local AutoFarm = Window:CreateTab("Auto Farm", 4483362458)
+local AutoTween = Window:CreateTab("Auto Tween", 4483362458)
+local ExitSettings = Window:CreateTab("Exit Settings", 4483362458)
+local Credits = Window:CreateTab("Credits", 4483362458)
