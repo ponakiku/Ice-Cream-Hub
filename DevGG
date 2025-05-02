@@ -1,21 +1,44 @@
-
-local Rayfield = v_4c7de36b(game:HttpGet('v_5e056c50://v_093f966b.v_8d6ab84c/v_1f370590'))()
-local TweenDistance = 25
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local TweenDistance = 50
 local TweenSpeed = 25
 local AutoAttack = false
 local AutoFollowEnabled = false
+local AttackCooldown = 0.25 -- Giá trị mặc định
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
-local v_912af0df = Players.LocalPlayer
+local player = Players.LocalPlayer
+local Noclip = nil
+local Clip = nil
 
--- UI
+-- Hàm noclip
+function noclip()
+	Clip = false
+	local function Nocl()
+		if Clip == false and game.Players.LocalPlayer.Character ~= nil then
+			for _, v in pairs(game.Players.LocalPlayer.Character:GetDescendants()) do
+				if v:IsA('BasePart') and v.CanCollide and v.Name ~= "FloatPosition" then
+					v.CanCollide = false
+				end
+			end
+		end
+		wait(0.21)
+	end
+	Noclip = game:GetService('RunService').Stepped:Connect(Nocl)
+end
+
+function clip()
+	if Noclip then Noclip:Disconnect() end
+	Clip = true
+end
+
+-- Giao diện người dùng
 local Window = Rayfield:CreateWindow({
 	Name = "Ice Cream Hub",
-	LoadingTitle = "Ice Cream v_dd9b985d",
+	LoadingTitle = "Ice Cream byDev",
 	ConfigurationSaving = {
 		Enabled = false
 	}
@@ -29,6 +52,11 @@ MainTab:CreateToggle({
 	Flag = "AutoTween",
 	Callback = function(Value)
 		AutoFollowEnabled = Value
+		if Value then
+			noclip()
+		else
+			clip()
+		end
 	end,
 })
 
@@ -43,9 +71,9 @@ MainTab:CreateToggle({
 
 MainTab:CreateSlider({
 	Name = "Mob Distance",
-	Range = {5, 50},
+	Range = {5, 150},
 	Increment = 1,
-	CurrentValue = 25,
+	CurrentValue = 50,
 	Flag = "TweenDistance",
 	Callback = function(Value)
 		TweenDistance = Value
@@ -63,84 +91,167 @@ MainTab:CreateSlider({
 	end,
 })
 
+MainTab:CreateSlider({
+	Name = "Attack Cooldown",
+	Range = {0.1, 0.5},
+	Increment = 0.05,
+	CurrentValue = 0.2,
+	Flag = "AttackCooldown",
+	Callback = function(Value)
+		AttackCooldown = Value
+	end,
+})
 
-local function v_6c843636()
-	local v_da8e95c5 = workspace:FindFirstChild("Mobs")
-	local v_63a9f0ea = v_912af0df.Character and v_912af0df.Character:FindFirstChild("HumanoidRootPart")
-	if not v_da8e95c5 or not v_63a9f0ea then return nil end
+MainTab:CreateButton({
+	Name = "Go Again your Dungeon",
+	Callback = function()
+		local args = { "GoAgain" }
+		local success, err = pcall(function()
+			game:GetService("ReplicatedStorage"):WaitForChild("Systems"):WaitForChild("Dungeons"):WaitForChild("SetExitChoice"):FireServer(unpack(args))
+		end)
+	end,
+})
 
-	local v_95eb60ad, v_2a6d07ee = nil, v_7e676e9e.v_b7cf27ff
-	for v_b14a7b80, v_41f02b07 in v_e0c6dcf8(v_da8e95c5:GetChildren()) do
-		if not v_41f02b07.Name:v_81e073b4():v_ea170e2c("v_6c43c0a8") and v_41f02b07:FindFirstChild("HumanoidRootPart") then
-			local v_8277e091 = (v_41f02b07.HumanoidRootPart.Position - v_63a9f0ea.Position).Magnitude
-			if v_8277e091 < v_2a6d07ee then
-				v_95eb60ad = v_41f02b07
-				v_2a6d07ee = v_8277e091
+-- Hàm tìm tất cả quái trong phạm vi
+local function getMobsInRange()
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return {}
+	end
+
+	local mobsInRange = {}
+	local attackRange = math.min(TweenDistance, 500) -- Giới hạn khoảng cách tấn công
+	local mobsFolder = workspace:FindFirstChild("Mobs")
+	local scanTarget = mobsFolder or workspace -- Ưu tiên Mobs, fallback sang workspace
+
+	local function scanMobs(folder)
+		for _, mob in pairs(folder:GetChildren()) do
+			if mob:IsA("Model") and mob:FindFirstChild("HumanoidRootPart") then
+				local humanoid = mob:FindFirstChildOfClass("Humanoid")
+				local mobPart = mob:FindFirstChild("HumanoidRootPart")
+				if (humanoid and humanoid.Health > 0) or (mobPart and not humanoid) then
+					local mobPos = mobPart.Position
+					local playerPos = root.Position
+					local distance = (Vector2.new(mobPos.X, mobPos.Z) - Vector2.new(playerPos.X, playerPos.Z)).Magnitude
+					if distance <= attackRange then
+						table.insert(mobsInRange, mob)
+					end
+				end
+			elseif mob:IsA("Folder") then
+				scanMobs(mob)
 			end
 		end
 	end
-	return v_95eb60ad
+
+	scanMobs(scanTarget)
+	return mobsInRange
 end
 
--- Auto v_f187aa38 v_e48b981f
-local v_5d673c07 = nil
-local v_f8a7275a = nil
+-- Hàm tìm quái gần nhất
+local function getClosestMob()
+	local mobs = workspace:WaitForChild("Mobs", 10)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not mobs or not root then
+		return nil
+	end
+
+	local closest, dist = nil, math.huge
+	local function scanMobs(folder)
+		for _, mob in pairs(folder:GetChildren()) do
+			if mob:IsA("Model") then
+				local mobPart = mob:FindFirstChild("HumanoidRootPart")
+				if mobPart then
+					local mobPos = mobPart.Position
+					local playerPos = root.Position
+					local d = (Vector2.new(mobPos.X, mobPos.Z) - Vector2.new(playerPos.X, playerPos.Z)).Magnitude
+					if d < dist then
+						closest = mob
+						dist = d
+					end
+				end
+			elseif mob:IsA("Folder") then
+				scanMobs(mob)
+			end
+		end
+	end
+
+	scanMobs(mobs)
+	return closest
+end
+
+-- Vòng lặp auto tween
+local currentTween = nil
+local currentTarget = nil
 
 RunService.Heartbeat:Connect(function()
-	if AutoFollowEnabled and v_912af0df.Character then
-		local v_9a3c6698 = v_912af0df.Character:FindFirstChild("Humanoid")
-		local v_ecca84ac = v_912af0df.Character:FindFirstChild("HumanoidRootPart")
+	if AutoFollowEnabled and player.Character then
+		local humanoid = player.Character:FindFirstChild("Humanoid")
+		local hrp = player.Character:FindFirstChild("HumanoidRootPart")
 
-		if v_9a3c6698 and v_ecca84ac and v_9a3c6698.Health > 0 then
-			if not v_f8a7275a or not v_f8a7275a:FindFirstChild("Humanoid") or v_f8a7275a.Humanoid.Health <= 0 then
-				v_f8a7275a = v_6c843636()
+		if humanoid and hrp and humanoid.Health > 0 then
+			if not currentTarget or not currentTarget.Parent or not currentTarget:FindFirstChild("HumanoidRootPart") then
+				currentTarget = getClosestMob()
 			end
 
-			if v_f8a7275a and v_f8a7275a:FindFirstChild("HumanoidRootPart") then
-				local v_73ac5ffe = v_f8a7275a.HumanoidRootPart
-				local v_6990a543 = v_73ac5ffe.Position + Vector3.v_22af645d(0, TweenDistance, 0)
+			if currentTarget then
+				local targetPart = currentTarget:FindFirstChild("HumanoidRootPart")
+				if targetPart then
+					local destination = targetPart.Position + Vector3.new(0, TweenDistance, 0)
 
-				local v_5cfdb867 = v_ecca84ac:FindFirstChild("FloatPosition") or Instance.v_22af645d("BodyPosition")
-				v_5cfdb867.Name = "FloatPosition"
-				v_5cfdb867.MaxForce = Vector3.v_22af645d(1e5, 1e5, 1e5)
-				v_5cfdb867.Position = v_6990a543
-				v_5cfdb867.P = 10000
-				v_5cfdb867.D = 1000
-				v_5cfdb867.Parent = v_ecca84ac
+					local bp = hrp:FindFirstChild("FloatPosition") or Instance.new("BodyPosition")
+					bp.Name = "FloatPosition"
+					bp.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+					bp.Position = destination
+					bp.P = 10000
+					bp.D = 1000
+					bp.Parent = hrp
 
-				local v_abe17809 = TweenInfo.v_22af645d(1 / TweenSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-				local v_ba7cd68a = { Position = v_6990a543 }
+					local tweenInfo =villenTweenInfo.new(1 / TweenSpeed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+					local tweenGoal = { Position = destination }
 
-				if v_5d673c07 then
-					v_5d673c07:Cancel()
+					if currentTween then
+						currentTween:Cancel()
+					end
+
+					currentTween = TweenService:Create(bp, tweenInfo, tweenGoal)
+					currentTween:Play()
+				else
+					currentTarget = getClosestMob()
 				end
-
-				v_5d673c07 = TweenService:Create(v_5cfdb867, v_abe17809, v_ba7cd68a)
-				v_5d673c07:Play()
 			end
 		end
 	end
 end)
 
 -- Auto tấn công
-v_478f3a4c.v_e09278fc(function()
+task.spawn(function()
+	local lastAttackTime = 0
 	while true do
-		if AutoAttack then
-			local v_41f02b07 = v_6c843636()
-			if v_41f02b07 then
-				local v_a956af09 = {
-					[1] = {
-						[1] = v_41f02b07
-					}
-				}
-				local v_f3d754c8 = ReplicatedStorage:WaitForChild("Systems"):WaitForChild("Combat"):WaitForChild("PlayerAttack")
-				v_f3d754c8:FireServer(v_795bfbff(v_a956af09))
+		if AutoAttack and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+			local currentTime = os.clock()
+			if currentTime - lastAttackTime >= AttackCooldown then
+				local mobs = getMobsInRange()
+				local combatRemote = ReplicatedStorage:FindFirstChild("Systems") and ReplicatedStorage.Systems:FindFirstChild("Combat") and ReplicatedStorage.Systems.Combat:FindFirstChild("PlayerAttack")
+				
+				if #mobs > 0 and combatRemote then
+					local args = { mobs }
+					pcall(function()
+						combatRemote:FireServer(unpack(args))
+					end)
+					lastAttackTime = currentTime
+				end
 			end
 		end
-		v_478f3a4c.v_49256b98(0.3)
+		task.wait(0.1) -- Giảm wait để vòng lặp chạy nhanh hơn
 	end
 end)
 
-v_912af0df.CharacterAdded:Connect(function()
-	v_f8a7275a = nil
+-- Theo dõi quái mới
+workspace.DescendantAdded:Connect(function(child)
+	if child:IsA("Model") and child:FindFirstChild("HumanoidRootPart") then
+	end
+end)
+
+player.CharacterAdded:Connect(function()
+	currentTarget = nil
 end)
